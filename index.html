@@ -28,7 +28,19 @@
       font-family: 'Sarabun', sans-serif;
     }
 
+    /* Print styles tailored for thermal label printers (50x30mm dynamic) */
     @media print {
+      @page {
+        size: auto;
+        margin: 0;
+      }
+      html, body {
+        width: 100%;
+        height: auto;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+      }
       body * {
         visibility: hidden;
       }
@@ -40,9 +52,19 @@
         left: 0;
         top: 0;
         width: 100%;
+        margin: 0;
+        padding: 0;
       }
-      .page-break {
+      .sticker-label-item {
         page-break-after: always;
+        break-after: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        margin: 0 auto;
+      }
+      .sticker-label-item:last-child {
+        page-break-after: auto;
+        break-after: auto;
       }
     }
   </style>
@@ -538,7 +560,7 @@
               <div 
                 key={item.id || index}
                 style={{ width: `${labelWidth}mm`, height: `${labelHeight}mm` }}
-                className="p-1.5 box-border flex flex-col justify-between border border-black page-break overflow-hidden"
+                className="sticker-label-item p-1.5 box-border flex flex-col justify-between border border-black overflow-hidden bg-white"
               >
                 <div className="flex justify-between items-center border-b border-black pb-0.5 text-[9px] font-bold">
                   <span>การไฟฟ้าส่วนภูมิภาคสาขาบัวเชด</span>
