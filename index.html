@@ -4,43 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ระบบ QR Scan PEA - การไฟฟ้าส่วนภูมิภาคสาขาบัวเชด</title>
-  
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React & React DOM -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  
-  <!-- Babel Compiler for JSX -->
+  <!-- React & ReactDOM CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel Standalone CDN for JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- QRCode JS CDN -->
+  <!-- QRCode Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
-
-  <!-- Lucide Icons -->
+  <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
-
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
-    
-    * {
+    body {
       font-family: 'Sarabun', sans-serif;
     }
-
-    /* Print styles tailored for thermal label printers (50x30mm dynamic) */
     @media print {
-      @page {
-        size: auto;
-        margin: 0;
-      }
-      html, body {
-        width: 100%;
-        height: auto;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-      }
       body * {
         visibility: hidden;
       }
@@ -52,30 +32,20 @@
         left: 0;
         top: 0;
         width: 100%;
+      }
+      @page {
+        size: 50mm 30mm;
         margin: 0;
-        padding: 0;
-      }
-      .sticker-label-item {
-        page-break-after: always;
-        break-after: page;
-        page-break-inside: avoid;
-        break-inside: avoid;
-        margin: 0 auto;
-      }
-      .sticker-label-item:last-child {
-        page-break-after: auto;
-        break-after: auto;
       }
     }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased">
+<body class="bg-slate-100 text-slate-800 transition-colors duration-200">
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // ข้อมูลเริ่มต้น PEA
     const INITIAL_DATA = [
       {
         id: '1',
@@ -85,80 +55,35 @@
       }
     ];
 
-    // Icon Wrapper Component
-    const Icon = ({ name, className = "w-4 h-4", ...props }) => {
-      const ref = useRef(null);
-
-      useEffect(() => {
-        if (ref.current) {
-          ref.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
-          if (window.lucide) {
-            window.lucide.createIcons();
-          }
-        }
-      }, [name, className]);
-
-      return <span ref={ref} {...props} className="inline-flex items-center justify-center" />;
-    };
-
-    // QR Code Canvas Renderer
-    function StickerQRCode({ text, size = 60 }) {
-      const canvasRef = useRef(null);
-
-      useEffect(() => {
-        if (window.QRCode && canvasRef.current && text) {
-          try {
-            window.QRCode.toCanvas(canvasRef.current, text, {
-              width: size,
-              margin: 1,
-              color: { dark: '#000000', light: '#ffffff' }
-            });
-          } catch (err) {
-            console.error("QR Code Error:", err);
-          }
-        }
-      }, [text, size]);
-
-      return <canvas ref={canvasRef} className="mx-auto rounded" />;
-    }
-
     function App() {
-      // ข้อมูลตารางหลัก
       const [dataList, setDataList] = useState(() => {
-        const saved = localStorage.getItem('pea_qr_scan_data_v10');
+        const saved = localStorage.getItem('pea_qr_scan_data_v11');
         return saved ? JSON.parse(saved) : INITIAL_DATA;
       });
 
-      // สถานะโหมดมืด (Dark Mode)
       const [darkMode, setDarkMode] = useState(() => {
-        const savedTheme = localStorage.getItem('pea_qr_theme');
-        return savedTheme ? savedTheme === 'dark' : false;
+        return localStorage.getItem('pea_qr_theme') === 'dark';
       });
 
-      // บันทึกการตั้งค่า Dark Mode
       useEffect(() => {
         localStorage.setItem('pea_qr_theme', darkMode ? 'dark' : 'light');
       }, [darkMode]);
 
-      // บันทึกลง LocalStorage
       useEffect(() => {
-        localStorage.setItem('pea_qr_scan_data_v10', JSON.stringify(dataList));
+        localStorage.setItem('pea_qr_scan_data_v11', JSON.stringify(dataList));
       }, [dataList]);
 
-      // ตั้งค่าเครื่องพิมพ์ & Offset
-      const [printerName, setPrinterName] = useState('PT330-331 Raster');
+      const [printerName, setPrinterName] = useState('System Default');
       const [qrOffset, setQrOffset] = useState(110);
-      const [labelWidth, setLabelWidth] = useState(50); // mm
-      const [labelHeight, setLabelHeight] = useState(30); // mm
+      const [labelWidth, setLabelWidth] = useState(50);
+      const [labelHeight, setLabelHeight] = useState(30);
 
-      // UI States
       const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
       const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
+      const [isClearModalOpen, setIsClearModalOpen] = useState(false);
       const [pasteMode, setPasteMode] = useState('new');
       const [pasteText, setPasteText] = useState('');
       const [toastMessage, setToastMessage] = useState('');
-
-      // Modal ดูตัวอย่างสติ๊กเกอร์
       const [selectedSticker, setSelectedSticker] = useState(null);
 
       const showToast = (msg) => {
@@ -166,26 +91,22 @@
         setTimeout(() => setToastMessage(''), 3500);
       };
 
-      // สร้าง Payload ข้อความหลังบ้านของ QR Code 4 บรรทัด
       const getQRPayload = (ca) => {
         const cleanCA = ca ? String(ca).trim() : '';
         return `|099400016550100\n0${cleanCA}\n00000\n00000`;
       };
 
-      // ฟังก์ชันแยกแยะและคัดกรองข้อมูลเมื่อวาง (Parsing Logic)
       const handleProcessPaste = () => {
         if (!pasteText || !pasteText.trim()) {
-          alert('กรุณาเลือกวางข้อมูลข้อความในช่องก่อนกดยืนยัน');
+          showToast('กรุณาวางข้อมูลข้อความในช่องก่อนกดยืนยัน');
           return;
         }
 
         const lines = pasteText.trim().split(/\r?\n/);
         const parsedItems = [];
-        let skippedCount = 0;
 
         lines.forEach((line, idx) => {
           if (!line.trim()) return;
-
           let rawCols = line.split('\t').map(c => c.trim()).filter(Boolean);
           if (rawCols.length <= 1) {
             rawCols = line.split(/,{2,}| {2,}/).map(c => c.trim()).filter(Boolean);
@@ -193,27 +114,17 @@
 
           if (rawCols.length > 0) {
             let caNo = '';
-            
-            // เงื่อนไข 1: CA ต้องขึ้นต้นด้วย 200 เท่านั้น
             const caMatch = line.match(/\b200\d+\b/);
             if (caMatch) {
               caNo = caMatch[0];
-            } else {
-              caNo = '';
             }
 
             let cols = rawCols.filter(col => col !== caNo && !/^\b200\d+\b$/.test(col));
-
             const hasLetters = (str) => /[\u0E00-\u0E7Fa-zA-Z]/.test(str);
-            
-            const isAddressKeyword = (str) => {
-              return /^(เลขที่|\d+\/\d+|ม\.|หมู่|บ\.|ต\.|ตำบล|อ\.|อำเภอ|จ\.|จังหวัด|ถ\.|ถนน|ซ\.|ซอย|\d{5})/i.test(str.trim());
-            };
+            const isAddressKeyword = (str) => /^(เลขที่|\d+\/\d+|ม\.|หมู่|บ\.|ต\.|ตำบล|อ\.|อำเภอ|จ\.|จังหวัด|ถ\.|ถนน|ซ\.|ซอย|\d{5})/i.test(str.trim());
 
-            // เงื่อนไข 2: หากคอลัมน์แรกๆ ไม่มีตัวอักษร ให้ลบ/ข้ามออกไป 1 คอลัมน์
             while (cols.length > 0 && !hasLetters(cols[0])) {
               cols.shift();
-              skippedCount++;
             }
 
             let nameParts = [];
@@ -221,14 +132,10 @@
             let isParsingAddress = false;
 
             cols.forEach((col) => {
-              if (isAddressKeyword(col)) {
-                isParsingAddress = true;
-              }
-
+              if (isAddressKeyword(col)) isParsingAddress = true;
               if (!isParsingAddress) {
-                if (hasLetters(col)) {
-                  nameParts.push(col);
-                } else {
+                if (hasLetters(col)) nameParts.push(col);
+                else {
                   isParsingAddress = true;
                   addressParts.push(col);
                 }
@@ -237,14 +144,11 @@
               }
             });
 
-            const fullName = nameParts.join(' ').trim();
-            const fullAddress = addressParts.join(' ').trim();
-
             parsedItems.push({
               id: Date.now() + '_' + idx + '_' + Math.random().toString(36).substr(2, 4),
               caNo: caNo,
-              name: fullName || (cols[0] || '-'),
-              address: fullAddress || (cols.slice(nameParts.length).join(' ') || '-')
+              name: nameParts.join(' ') || (cols[0] || '-'),
+              address: addressParts.join(' ') || (cols.slice(nameParts.length).join(' ') || '-')
             });
           }
         });
@@ -258,23 +162,20 @@
             showToast(`วางเพิ่มสำเร็จ! รวมเป็น ${dataList.length + parsedItems.length} รายการ`);
           }
         } else {
-          alert('ไม่พบข้อมูลที่ตรงตามรูปแบบ กรุณาตรวจสอบข้อความที่คัดลอก');
+          showToast('ไม่พบข้อมูลที่ตรงตามรูปแบบ');
         }
 
         setPasteText('');
         setIsPasteModalOpen(false);
       };
 
-      // ล้างข้อมูลทั้งหมด (Clear Data)
       const handleClearData = () => {
-        if (window.confirm('คุณต้องการล้างข้อมูลในตารางทั้งหมดใช่หรือไม่?')) {
-          setDataList([]);
-          localStorage.removeItem('pea_qr_scan_data_v10');
-          showToast('ล้างข้อมูลในตารางเรียบร้อยแล้ว');
-        }
+        setDataList([]);
+        localStorage.removeItem('pea_qr_scan_data_v11');
+        setIsClearModalOpen(false);
+        showToast('ล้างข้อมูลในตารางเรียบร้อยแล้ว');
       };
 
-      // เพิ่มแถวใหม่
       const handleAddRow = () => {
         const newItem = {
           id: Date.now().toString(),
@@ -286,41 +187,37 @@
         showToast('เพิ่มแถวใหม่สำเร็จ');
       };
 
-      // ลบแถว
       const handleDeleteRow = (id) => {
         setDataList(prev => prev.filter(item => item.id !== id));
         showToast('ลบรายการเรียบร้อย');
       };
 
-      // คำสั่งพิมพ์
       const handleTriggerPrint = () => {
         if (dataList.length === 0) {
-          alert('ไม่มีข้อมูลในตารางสำหรับสั่งพิมพ์');
+          showToast('ไม่มีข้อมูลในตารางสำหรับสั่งพิมพ์');
           return;
         }
         window.print();
       };
 
       return (
-        <div className={`min-h-screen transition-colors duration-200 flex flex-col ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-800'}`}>
+        <div className={`min-h-screen font-sans transition-colors duration-200 flex flex-col antialiased ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-800'}`}>
           
-          {/* Toast Notification */}
           {toastMessage && (
             <div className="fixed top-4 right-4 z-50 bg-purple-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-2.5 animate-bounce border border-purple-700">
-              <Icon name="check" className="w-4 h-4 text-emerald-400" />
-              <span>{toastMessage}</span>
+              <span>✓ {toastMessage}</span>
             </div>
           )}
 
-          {/* HEADER SECTION */}
+          {/* HEADER */}
           <header className="print:hidden bg-gradient-to-r from-purple-950 via-purple-900 to-indigo-950 text-white shadow-md border-b border-purple-800/40">
             <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-400 text-purple-950 rounded-2xl shadow-md">
-                  <Icon name="qr-code" className="w-6 h-6" />
+                <div className="p-2 bg-amber-400 text-purple-950 rounded-2xl shadow-md font-bold">
+                  🖨️
                 </div>
                 <div>
-                  <h1 className="font-black text-lg tracking-wide text-amber-400 flex items-center gap-2">
+                  <h1 className="font-black text-lg tracking-wide text-amber-400">
                     ระบบ QR Scan PEA
                   </h1>
                   <p className="text-xs text-purple-200">การไฟฟ้าส่วนภูมิภาคสาขาบัวเชด</p>
@@ -335,63 +232,36 @@
 
                 <button
                   onClick={() => setDarkMode(!darkMode)}
-                  className="p-2 rounded-2xl bg-purple-900/90 hover:bg-purple-800 border border-purple-700 text-amber-300 hover:text-amber-200 transition-all cursor-pointer flex items-center gap-2 px-3 text-xs font-bold shadow-inner"
+                  className="p-2 rounded-2xl bg-purple-900/90 hover:bg-purple-800 border border-purple-700 text-amber-300 transition-all cursor-pointer flex items-center gap-2 px-3 text-xs font-bold"
                 >
-                  {darkMode ? (
-                    <>
-                      <Icon name="sun" className="w-4 h-4 text-amber-400" />
-                      <span className="hidden md:inline">โหมดสว่าง</span>
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="moon" className="w-4 h-4 text-amber-200" />
-                      <span className="hidden md:inline">โหมดมืด</span>
-                    </>
-                  )}
+                  {darkMode ? '☀️ โหมดสว่าง' : '🌙 โหมดมืด'}
                 </button>
               </div>
             </div>
           </header>
 
-          {/* MAIN CONTAINER */}
+          {/* MAIN */}
           <main className="flex-1 p-4 md:p-6 max-w-[1600px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 print:hidden">
             
             {/* TABLE SECTION */}
             <section className="lg:col-span-8 xl:col-span-9 space-y-4">
-              <div className={`rounded-3xl shadow-sm border overflow-hidden transition-colors ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-                
-                {/* TABLE HEADER BAR */}
+              <div className={`rounded-3xl shadow-sm border overflow-hidden ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
                 <div className={`p-4 border-b flex items-center justify-between flex-wrap gap-3 ${darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-xl ${darkMode ? 'bg-purple-950 text-purple-300' : 'bg-purple-100 text-purple-900'}`}>
-                      <Icon name="file-text" className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h2 className={`font-bold text-sm md:text-base ${darkMode ? 'text-white' : 'text-slate-900'}`}>ตารางรายการผู้ใช้ไฟฟ้า</h2>
-                      <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>รวมทั้งสิ้น {dataList.length} รายการ | สามารถแก้ไขในตารางได้โดยตรง</p>
-                    </div>
+                  <div>
+                    <h2 className={`font-bold text-sm md:text-base ${darkMode ? 'text-white' : 'text-slate-900'}`}>ตารางรายการผู้ใช้ไฟฟ้า</h2>
+                    <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>รวมทั้งสิ้น {dataList.length} รายการ | แก้ไขข้อมูลในตารางได้โดยตรง</p>
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <button 
-                      onClick={handleAddRow}
-                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Icon name="plus" className="w-4 h-4" /> เพิ่มแถว
+                    <button onClick={handleAddRow} className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer">
+                      + เพิ่มแถว
                     </button>
-                    <button 
-                      onClick={() => {
-                        setPasteMode('new');
-                        setIsPasteModalOpen(true);
-                      }}
-                      className="px-3.5 py-2 bg-purple-800 hover:bg-purple-900 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Icon name="copy" className="w-4 h-4" /> วางข้อมูล Excel
+                    <button onClick={() => { setPasteMode('new'); setIsPasteModalOpen(true); }} className="px-3.5 py-2 bg-purple-800 hover:bg-purple-900 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer">
+                      📋 วางข้อมูล Excel
                     </button>
                   </div>
                 </div>
 
-                {/* DATA TABLE */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
@@ -407,33 +277,24 @@
                     <tbody className={`divide-y ${darkMode ? 'divide-slate-800 bg-slate-900' : 'divide-slate-200 bg-white'}`}>
                       {dataList.length === 0 ? (
                         <tr>
-                          <td colSpan="6" className="text-center py-16">
-                            <div className="flex flex-col items-center justify-center space-y-2">
-                              <Icon name="qr-code" className={`w-12 h-12 stroke-1 ${darkMode ? 'text-slate-700' : 'text-slate-300'}`} />
-                              <p className={`font-bold text-sm ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>ยังไม่มีข้อมูลในตาราง</p>
-                              <p className={`text-xs ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                กดปุ่ม <span className="font-bold text-purple-400">"วางใหม่"</span> หรือ <span className="font-bold text-purple-400">"วางเพิ่ม"</span> จากแถบด้านขวาเพื่อนำเข้าข้อมูล
-                              </p>
-                            </div>
-                          </td>
+                          <td colSpan="6" className="text-center py-16 text-slate-400">ยังไม่มีข้อมูลในตาราง กดปุ่ม "วางข้อมูล Excel" เพื่อนำเข้า</td>
                         </tr>
                       ) : (
                         dataList.map((row, index) => (
-                          <tr key={row.id} className={`transition-colors group ${darkMode ? 'hover:bg-purple-950/30' : 'hover:bg-purple-50/40'}`}>
-                            <td className={`p-3 text-center font-mono font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>{index + 1}</td>
-                            <td className={`p-3 border-r font-mono font-bold text-sm ${darkMode ? 'border-slate-800 text-purple-300' : 'border-slate-100 text-purple-950'}`}>
+                          <tr key={row.id} className={`transition-colors ${darkMode ? 'hover:bg-purple-950/30' : 'hover:bg-purple-50/40'}`}>
+                            <td className="p-3 text-center font-mono text-slate-400">{index + 1}</td>
+                            <td className="p-3 border-r font-mono font-bold text-sm">
                               <input 
                                 type="text"
                                 value={row.caNo}
-                                placeholder="เว้นว่าง (ไม่ใช่ 200)"
                                 onChange={e => {
                                   const val = e.target.value;
                                   setDataList(prev => prev.map(item => item.id === row.id ? { ...item, caNo: val } : item));
                                 }}
-                                className={`w-full bg-transparent border-b border-transparent group-hover:border-purple-500 focus:bg-transparent focus:border-purple-600 px-1 py-0.5 rounded focus:outline-none ${!row.caNo || !row.caNo.startsWith('200') ? 'text-rose-500 italic font-normal' : ''}`}
+                                className={`w-full bg-transparent border-b border-transparent focus:border-purple-600 px-1 py-0.5 rounded focus:outline-none ${!row.caNo || !row.caNo.startsWith('200') ? 'text-rose-500 italic' : ''}`}
                               />
                             </td>
-                            <td className={`p-3 border-r font-bold ${darkMode ? 'border-slate-800 text-slate-200' : 'border-slate-100 text-slate-800'}`}>
+                            <td className="p-3 border-r font-bold">
                               <input 
                                 type="text"
                                 value={row.name}
@@ -441,10 +302,10 @@
                                   const val = e.target.value;
                                   setDataList(prev => prev.map(item => item.id === row.id ? { ...item, name: val } : item));
                                 }}
-                                className="w-full bg-transparent border-b border-transparent group-hover:border-purple-500 focus:bg-transparent focus:border-purple-600 px-1 py-0.5 rounded focus:outline-none"
+                                className="w-full bg-transparent border-b border-transparent focus:border-purple-600 px-1 py-0.5 rounded focus:outline-none"
                               />
                             </td>
-                            <td className={`p-3 border-r ${darkMode ? 'border-slate-800 text-slate-300' : 'border-slate-100 text-slate-600'}`}>
+                            <td className="p-3 border-r">
                               <input 
                                 type="text"
                                 value={row.address}
@@ -452,24 +313,17 @@
                                   const val = e.target.value;
                                   setDataList(prev => prev.map(item => item.id === row.id ? { ...item, address: val } : item));
                                 }}
-                                className="w-full bg-transparent border-b border-transparent group-hover:border-purple-500 focus:bg-transparent focus:border-purple-600 px-1 py-0.5 rounded focus:outline-none"
+                                className="w-full bg-transparent border-b border-transparent focus:border-purple-600 px-1 py-0.5 rounded focus:outline-none"
                               />
                             </td>
-                            <td className={`p-3 text-center border-r ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
-                              <button 
-                                onClick={() => setSelectedSticker(row)}
-                                className={`inline-flex items-center gap-1.5 font-mono px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${darkMode ? 'bg-purple-900/60 hover:bg-purple-900 text-purple-200' : 'bg-purple-100 hover:bg-purple-200 text-purple-900'}`}
-                              >
-                                <Icon name="eye" className="w-3.5 h-3.5 text-purple-400" /> ดูฉลาก
+                            <td className="p-3 text-center border-r">
+                              <button onClick={() => setSelectedSticker(row)} className="px-2.5 py-1 rounded-xl text-xs font-bold bg-purple-100 hover:bg-purple-200 text-purple-900 cursor-pointer">
+                                👁️ ดูฉลาก
                               </button>
                             </td>
                             <td className="p-3 text-center">
-                              <button 
-                                onClick={() => handleDeleteRow(row.id)}
-                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${darkMode ? 'text-slate-500 hover:text-rose-400 hover:bg-rose-950/50' : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'}`}
-                                title="ลบแถวนี้"
-                              >
-                                <Icon name="trash-2" className="w-4 h-4" />
+                              <button onClick={() => handleDeleteRow(row.id)} className="text-slate-400 hover:text-rose-600 cursor-pointer">
+                                🗑️
                               </button>
                             </td>
                           </tr>
@@ -481,86 +335,62 @@
               </div>
             </section>
 
-            {/* RIGHT: CONTROL PANEL */}
+            {/* CONTROL PANEL */}
             <section className="lg:col-span-4 xl:col-span-3 space-y-4">
-              <div className="bg-gradient-to-b from-purple-900 via-purple-950 to-slate-950 p-5 rounded-3xl shadow-xl border-4 border-purple-900 space-y-4">
-                <div className="text-center border-b border-purple-800/80 pb-3">
-                  <h3 className="font-black text-white text-base tracking-wide">แผงควบคุมหลัก</h3>
+              <div className="bg-gradient-to-b from-purple-900 via-purple-950 to-slate-950 p-5 rounded-3xl shadow-xl border-4 border-purple-900 space-y-4 text-white">
+                <div className="text-center border-b border-purple-800 pb-3">
+                  <h3 className="font-black text-base">แผงควบคุมหลัก</h3>
                   <p className="text-[11px] text-purple-300">QRCodeCA Control Panel</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={() => {
-                      setPasteMode('new');
-                      setIsPasteModalOpen(true);
-                    }}
-                    className="py-4 px-2 bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 hover:from-white hover:to-slate-200 text-slate-900 font-black rounded-2xl shadow-lg border-b-4 border-slate-400 text-base flex flex-col items-center justify-center gap-0.5 active:translate-y-0.5 transition-all cursor-pointer"
-                  >
+                  <button onClick={() => { setPasteMode('new'); setIsPasteModalOpen(true); }} className="py-4 px-2 bg-slate-200 hover:bg-white text-slate-900 font-black rounded-2xl shadow-lg border-b-4 border-slate-400 text-sm flex flex-col items-center cursor-pointer">
                     <span>วางใหม่</span>
-                    <span className="text-[10px] text-slate-600 font-semibold">(Replace)</span>
+                    <span className="text-[10px] text-slate-600">(Replace)</span>
                   </button>
-
-                  <button 
-                    onClick={() => {
-                      setPasteMode('append');
-                      setIsPasteModalOpen(true);
-                    }}
-                    className="py-4 px-2 bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 hover:from-white hover:to-slate-200 text-slate-900 font-black rounded-2xl shadow-lg border-b-4 border-slate-400 text-base flex flex-col items-center justify-center gap-0.5 active:translate-y-0.5 transition-all cursor-pointer"
-                  >
+                  <button onClick={() => { setPasteMode('append'); setIsPasteModalOpen(true); }} className="py-4 px-2 bg-slate-200 hover:bg-white text-slate-900 font-black rounded-2xl shadow-lg border-b-4 border-slate-400 text-sm flex flex-col items-center cursor-pointer">
                     <span>วางเพิ่ม</span>
-                    <span className="text-[10px] text-slate-600 font-semibold">(Append)</span>
+                    <span className="text-[10px] text-slate-600">(Append)</span>
                   </button>
                 </div>
 
-                <button 
-                  onClick={() => setIsPrinterModalOpen(true)}
-                  className="w-full py-3.5 px-3 bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 hover:from-white hover:to-slate-200 text-slate-900 font-black rounded-2xl shadow-lg border-b-4 border-slate-400 text-base flex items-center justify-center gap-2 active:translate-y-0.5 transition-all cursor-pointer"
-                >
-                  <Icon name="settings" className="w-4 h-4 text-purple-900" />
-                  <span>Change Printer</span>
+                <button onClick={() => setIsPrinterModalOpen(true)} className="w-full py-3.5 px-3 bg-slate-200 hover:bg-white text-slate-900 font-black rounded-2xl shadow-lg border-b-4 border-slate-400 text-sm flex items-center justify-center gap-2 cursor-pointer">
+                  ⚙️ Change Printer
                 </button>
 
-                <button 
-                  onClick={handleTriggerPrint}
-                  disabled={dataList.length === 0}
-                  className="w-full py-4 px-3 bg-gradient-to-b from-slate-100 via-slate-200 to-slate-300 hover:from-white hover:to-slate-200 disabled:opacity-50 text-slate-900 font-black rounded-2xl shadow-lg border-b-4 border-slate-400 text-base md:text-lg flex flex-col items-center justify-center active:translate-y-0.5 transition-all cursor-pointer"
-                >
+                <button onClick={handleTriggerPrint} disabled={dataList.length === 0} className="w-full py-4 px-3 bg-slate-200 hover:bg-white disabled:opacity-50 text-slate-900 font-black rounded-2xl shadow-lg border-b-4 border-slate-400 text-base flex flex-col items-center cursor-pointer">
                   <span>Print</span>
-                  <span className="text-xs font-bold text-purple-950 mt-0.5">ON: {printerName}</span>
+                  <span className="text-xs font-bold text-purple-950">ON: {printerName}</span>
                 </button>
 
-                <button 
-                  onClick={handleClearData}
-                  className="w-full py-4 px-3 bg-gradient-to-b from-rose-100 via-rose-200 to-rose-300 hover:from-white hover:to-rose-200 text-rose-950 font-black rounded-2xl shadow-lg border-b-4 border-rose-400 text-2xl tracking-wide flex items-center justify-center active:translate-y-0.5 transition-all cursor-pointer"
-                >
-                  <span>Clear Data</span>
+                <button onClick={() => setIsClearModalOpen(true)} className="w-full py-4 px-3 bg-rose-200 hover:bg-rose-100 text-rose-950 font-black rounded-2xl shadow-lg border-b-4 border-rose-400 text-xl tracking-wide flex items-center justify-center cursor-pointer">
+                  Clear Data
                 </button>
               </div>
 
-              <div className={`p-4 rounded-3xl shadow-sm text-center space-y-2 border-2 ${darkMode ? 'bg-purple-950/50 border-purple-800' : 'bg-purple-200 border-purple-400'}`}>
-                <label className={`block text-xs font-bold leading-tight ${darkMode ? 'text-purple-200' : 'text-purple-950'}`}>
-                  สำหรับปรับให้ QR Code อยู่กึ่งกลาง ค่าเริ่มต้นอยู่ที่ 110
+              <div className={`p-4 rounded-3xl text-center space-y-2 border-2 ${darkMode ? 'bg-purple-950/50 border-purple-800' : 'bg-purple-200 border-purple-400'}`}>
+                <label className="block text-xs font-bold leading-tight">
+                  ปรับระยะ QR Code อยู่กึ่งกลาง (ค่าเริ่มต้น 110)
                 </label>
                 <div className="flex justify-center">
                   <input 
                     type="number"
                     value={qrOffset}
                     onChange={e => setQrOffset(Number(e.target.value))}
-                    className={`w-36 py-2 px-3 border-2 rounded-2xl text-center font-black text-2xl shadow-inner focus:outline-none ${darkMode ? 'bg-purple-900 border-purple-700 text-amber-300' : 'bg-purple-300 border-purple-500 text-purple-950'}`}
+                    className="w-36 py-2 px-3 border-2 rounded-2xl text-center font-black text-2xl shadow-inner bg-white text-purple-950 focus:outline-none"
                   />
                 </div>
               </div>
             </section>
           </main>
 
-          {/* PRINT AREA */}
+          {/* PRINT CONTAINER (Continuous Flow Layout) */}
           <div className="print-area hidden print:block text-black">
             {dataList.map((item, index) => (
               <div 
                 key={item.id || index}
-                style={{ width: `${labelWidth}mm`, height: `${labelHeight}mm` }}
-                className="sticker-label-item p-1.5 box-border flex flex-col justify-between border border-black overflow-hidden bg-white"
+                style={{ width: `${labelWidth}mm`, height: `${labelHeight}mm`, pageBreakAfter: 'avoid', breakInside: 'avoid' }}
+                className="p-1.5 box-border flex flex-col justify-between border border-black overflow-hidden bg-white"
               >
                 <div className="flex justify-between items-center border-b border-black pb-0.5 text-[9px] font-bold">
                   <span>การไฟฟ้าส่วนภูมิภาคสาขาบัวเชด</span>
@@ -582,140 +412,88 @@
             ))}
           </div>
 
-          {/* MODAL: PASTE DATA DIALOG */}
+          {/* PASTE MODAL */}
           {isPasteModalOpen && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
               <div className={`rounded-3xl shadow-2xl border w-full max-w-xl p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'}`}>
-                <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-xl ${darkMode ? 'bg-purple-950 text-purple-300' : 'bg-purple-100 text-purple-900'}`}>
-                      <Icon name="copy" className="w-5 h-5" />
-                    </div>
-                    <h3 className="font-bold text-base">
-                      {pasteMode === 'new' ? 'วางใหม่ (Replace Paste)' : 'วางเพิ่ม (Append Paste)'}
-                    </h3>
-                  </div>
-                  <button onClick={() => setIsPasteModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                    <Icon name="x" className="w-5 h-5" />
-                  </button>
+                <div className="flex justify-between items-center border-b pb-3">
+                  <h3 className="font-bold text-base">{pasteMode === 'new' ? 'วางใหม่ (Replace Paste)' : 'วางเพิ่ม (Append Paste)'}</h3>
+                  <button onClick={() => setIsPasteModalOpen(false)} className="cursor-pointer text-slate-400">✕</button>
                 </div>
 
                 <div className="space-y-3">
-                  <label className={`block text-xs font-bold ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                    วางตารางข้อมูลที่คัดลอกจาก Excel หรือโปรแกรม PEA Billing
-                  </label>
-                  
-                  <div className={`p-3 rounded-2xl text-[11px] space-y-1 border ${darkMode ? 'bg-purple-950/40 border-purple-800 text-purple-200' : 'bg-purple-50 border-purple-200 text-purple-950'}`}>
-                    <p className="font-bold">กฎการคัดกรองข้อมูลอัตโนมัติ:</p>
-                    <ul className="list-disc list-inside space-y-0.5 opacity-90">
-                      <li><strong>CA (หมายเลขผู้ใช้ไฟฟ้า):</strong> ต้องขึ้นต้นด้วย <span className="font-mono bg-purple-800 text-purple-100 px-1 py-0.2 rounded font-bold">200</span> เท่านั้น หากไม่ใช่จะปล่อยว่าง</li>
-                      <li><strong>ชื่อผู้ใช้ไฟฟ้า:</strong> ลบคอลัมน์ที่ไม่มีตัวอักษรออก และรวมชื่อ-นามสกุลให้อยู่ในช่องเดียวกัน</li>
-                    </ul>
-                  </div>
-
+                  <label className="block text-xs font-bold">วางตารางข้อมูลที่คัดลอกจาก Excel:</label>
                   <textarea 
                     rows="7"
                     value={pasteText}
                     onChange={e => setPasteText(e.target.value)}
-                    placeholder={`วางข้อมูลจาก Excel ที่นี่...\nตัวอย่าง:\n20012945981\tนายปรีชา\tสิงห์ธีร์\tเลขที่ 36/1 ม.4 บ.หมื่นสังข์...`}
-                    className={`w-full p-3.5 font-mono text-xs border rounded-2xl focus:ring-2 focus:ring-purple-600 focus:outline-none ${darkMode ? 'bg-slate-950 border-slate-700 text-slate-100 placeholder-slate-600' : 'bg-white border-slate-300 text-slate-800'}`}
+                    placeholder="วางข้อมูลจาก Excel ที่นี่..."
+                    className="w-full p-3.5 font-mono text-xs border rounded-2xl bg-slate-50 text-slate-900 focus:outline-none"
                   />
                 </div>
 
-                <div className={`flex justify-end gap-2.5 pt-2 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-                  <button 
-                    type="button"
-                    onClick={() => setIsPasteModalOpen(false)}
-                    className={`px-4 py-2 text-xs font-semibold rounded-xl cursor-pointer ${darkMode ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
-                  >
-                    ยกเลิก
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={handleProcessPaste}
-                    className="px-5 py-2.5 text-xs font-bold bg-purple-900 hover:bg-purple-950 text-white rounded-xl shadow-md cursor-pointer"
-                  >
-                    ยืนยันการวางข้อมูล
-                  </button>
+                <div className="flex justify-end gap-2 pt-2 border-t">
+                  <button onClick={() => setIsPasteModalOpen(false)} className="px-4 py-2 text-xs font-semibold cursor-pointer">ยกเลิก</button>
+                  <button onClick={handleProcessPaste} className="px-5 py-2.5 text-xs font-bold bg-purple-900 hover:bg-purple-950 text-white rounded-xl shadow-md cursor-pointer">ยืนยัน</button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* MODAL: PRINTER SETTINGS */}
+          {/* CLEAR CONFIRMATION MODAL (Replaces confirm()) */}
+          {isClearModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className={`rounded-3xl shadow-2xl border w-full max-w-md p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'}`}>
+                <h3 className="font-bold text-base text-rose-600">ยืนยันการล้างข้อมูล</h3>
+                <p className="text-xs">คุณต้องการล้างข้อมูลในตารางทั้งหมดใช่หรือไม่? ข้อมูลทั้งหมดจะถูกลบออกทันที</p>
+                <div className="flex justify-end gap-2 pt-2 border-t">
+                  <button onClick={() => setIsClearModalOpen(false)} className="px-4 py-2 text-xs font-semibold cursor-pointer">ยกเลิก</button>
+                  <button onClick={handleClearData} className="px-5 py-2.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-md cursor-pointer">ยืนยันล้างข้อมูล</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PRINTER SETTINGS MODAL */}
           {isPrinterModalOpen && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
               <div className={`rounded-3xl shadow-2xl border w-full max-w-lg p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'}`}>
-                <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-                  <div className="flex items-center gap-2">
-                    <div className={`p-2 rounded-xl ${darkMode ? 'bg-purple-950 text-purple-300' : 'bg-purple-100 text-purple-900'}`}>
-                      <Icon name="printer" className="w-5 h-5" />
-                    </div>
-                    <h3 className="font-bold text-base">ตั้งค่าเครื่องพิมพ์ (Change Printer)</h3>
-                  </div>
-                  <button onClick={() => setIsPrinterModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                    <Icon name="x" className="w-5 h-5" />
-                  </button>
+                <div className="flex justify-between items-center border-b pb-3">
+                  <h3 className="font-bold text-base">ตั้งค่าเครื่องพิมพ์ (Change Printer)</h3>
+                  <button onClick={() => setIsPrinterModalOpen(false)} className="cursor-pointer text-slate-400">✕</button>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className={`block text-xs font-bold mb-1 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>เลือกไดรเวอร์เครื่องพิมพ์</label>
+                    <label className="block text-xs font-bold mb-1">เลือกเครื่องพิมพ์ในระบบ / ไดรเวอร์</label>
                     <select 
                       value={printerName}
                       onChange={e => setPrinterName(e.target.value)}
-                      className={`w-full p-3 text-xs font-semibold border rounded-xl focus:ring-2 focus:ring-purple-600 focus:outline-none ${darkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-800'}`}
+                      className="w-full p-3 text-xs font-semibold border rounded-xl bg-slate-50 text-slate-900 focus:outline-none"
                     >
+                      <option value="System Default">System Default (เครื่องพิมพ์เริ่มต้นของระบบ Windows/Mac)</option>
                       <option value="PT330-331 Raster">PT330-331 Raster (Thermal Barcode Printer)</option>
                       <option value="Zebra ZD220 Direct Thermal">Zebra ZD220 Direct Thermal</option>
                       <option value="TSC TE200 Barcode Printer">TSC TE200 Barcode Printer</option>
                       <option value="Xprinter XP-365B Thermal">Xprinter XP-365B Thermal</option>
                     </select>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div>
-                      <label className={`block text-xs font-bold mb-1 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>ความกว้างฉลาก (มม.)</label>
-                      <input 
-                        type="number"
-                        value={labelWidth}
-                        onChange={e => setLabelWidth(Number(e.target.value))}
-                        className={`w-full p-2.5 text-xs font-bold border rounded-xl ${darkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-800'}`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-bold mb-1 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>ความสูงฉลาก (มม.)</label>
-                      <input 
-                        type="number"
-                        value={labelHeight}
-                        onChange={e => setLabelHeight(Number(e.target.value))}
-                        className={`w-full p-2.5 text-xs font-bold border rounded-xl ${darkMode ? 'bg-slate-950 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-800'}`}
-                      />
-                    </div>
-                  </div>
                 </div>
 
-                <div className={`flex justify-end pt-3 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-                  <button 
-                    onClick={() => setIsPrinterModalOpen(false)}
-                    className="px-5 py-2.5 text-xs font-bold bg-purple-900 hover:bg-purple-950 text-white rounded-xl shadow-md cursor-pointer"
-                  >
-                    บันทึกการตั้งค่า
-                  </button>
+                <div className="flex justify-end pt-3 border-t">
+                  <button onClick={() => setIsPrinterModalOpen(false)} className="px-5 py-2.5 text-xs font-bold bg-purple-900 hover:bg-purple-950 text-white rounded-xl shadow-md cursor-pointer">บันทึก</button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* MODAL: SINGLE STICKER PREVIEW */}
+          {/* PREVIEW SINGLE STICKER MODAL */}
           {selectedSticker && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
               <div className={`rounded-3xl shadow-2xl border w-full max-w-md p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'}`}>
-                <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+                <div className="flex justify-between items-center border-b pb-3">
                   <h3 className="font-bold text-sm">ตัวอย่างฉลากสติ๊กเกอร์ 50x30mm</h3>
-                  <button onClick={() => setSelectedSticker(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                    <Icon name="x" className="w-5 h-5" />
-                  </button>
+                  <button onClick={() => setSelectedSticker(null)} className="cursor-pointer text-slate-400">✕</button>
                 </div>
 
                 <div className="flex flex-col items-center py-2 space-y-3">
@@ -737,32 +515,12 @@
 
                     <div className="border-t border-black pt-1 text-center min-h-[16px]"></div>
                   </div>
-
-                  <div className="w-full bg-slate-950 text-emerald-400 p-3 rounded-2xl text-[11px] font-mono space-y-1 border border-slate-800">
-                    <p className="text-slate-400 text-[10px] font-sans font-bold border-b border-slate-800 pb-1">
-                      ข้อความ QR Code หลังบ้าน (Payload Structure):
-                    </p>
-                    <pre className="whitespace-pre-wrap leading-tight pt-1">
-                      {getQRPayload(selectedSticker.caNo)}
-                    </pre>
-                  </div>
                 </div>
 
-                <div className={`flex justify-end gap-2 pt-2 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-                  <button 
-                    onClick={() => setSelectedSticker(null)}
-                    className={`px-4 py-2 text-xs font-semibold rounded-xl cursor-pointer ${darkMode ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
-                  >
-                    ปิด
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setSelectedSticker(null);
-                      window.print();
-                    }}
-                    className="px-4 py-2 text-xs font-bold bg-purple-900 hover:bg-purple-950 text-white rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
-                  >
-                    <Icon name="printer" className="w-4 h-4" /> สั่งพิมพ์สติ๊กเกอร์นี้
+                <div className="flex justify-end gap-2 pt-2 border-t">
+                  <button onClick={() => setSelectedSticker(null)} className="px-4 py-2 text-xs font-semibold cursor-pointer">ปิด</button>
+                  <button onClick={() => { setSelectedSticker(null); window.print(); }} className="px-4 py-2 text-xs font-bold bg-purple-900 hover:bg-purple-950 text-white rounded-xl shadow-md cursor-pointer">
+                    🖨️ สั่งพิมพ์สติ๊กเกอร์นี้
                   </button>
                 </div>
               </div>
@@ -773,8 +531,27 @@
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    function StickerQRCode({ text, size = 60 }) {
+      const canvasRef = useRef(null);
+
+      useEffect(() => {
+        if (window.QRCode && canvasRef.current && text) {
+          try {
+            window.QRCode.toCanvas(canvasRef.current, text, {
+              width: size,
+              margin: 1,
+              color: { dark: '#000000', light: '#ffffff' }
+            });
+          } catch (err) {
+            console.error("QR Code Error:", err);
+          }
+        }
+      }, [text, size]);
+
+      return <canvas ref={canvasRef} className="mx-auto rounded" />;
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
